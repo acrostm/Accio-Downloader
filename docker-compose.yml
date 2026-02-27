@@ -1,0 +1,31 @@
+# =============================================================
+# Accio Downloader - Docker Compose (All-in-One)
+# =============================================================
+# For NAS GUI users: just configure single port 8080 + /data volume.
+#
+# docker compose up -d --build
+# =============================================================
+
+services:
+  accio:
+    image: accio-downloader # Or ghcr.io/yourname/accio:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080" # 🔑 Only ONE port to expose — map this in your NAS GUI
+    volumes:
+      # 🔑 Map this to YOUR NAS download path (everything else is internal)
+      - /volume1/downloads/Accio:/data/downloads
+      # Persists database + cookies across container restarts
+      - accio-data:/data
+    environment:
+      # ✅ Customize these in your NAS GUI's environment variable section:
+      - DATABASE_URL=sqlite:////data/sql_app.db
+      - COOKIES_FILE=/data/cookies.txt
+      - TEMP_DOWNLOAD_DIR=/data/downloads
+      - CORS_ORIGINS=* # Lock down to your domain in production
+    restart: unless-stopped
+
+volumes:
+  accio-data: # Named volume for database and cookies persistence

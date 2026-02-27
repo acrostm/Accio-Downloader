@@ -1,0 +1,27 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Environment & secrets
+.env
+.env.production
+.env.*.local
+
+# Database
+sql_app.db
+*.db
+
+# Downloads (mounted as volume at runtime)
+downloads/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+
+# OS
+.DS_Store
+*.log

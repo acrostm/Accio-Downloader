@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Downloads / OS
+downloads/
+.DS_Store
+
+# Node.js
+node_modules/
+dist/
+.next/
+.npm/
+
+# Database
+*.db
+*.sqlite3
+cookies.txt

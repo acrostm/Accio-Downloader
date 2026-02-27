@@ -45,7 +45,7 @@ async def download_video_url(
     db.commit()
     db.refresh(new_task)
 
-    background_tasks.add_task(process_download_task, new_task.id, db)
+    background_tasks.add_task(process_download_task, new_task.id)
 
     return DownloadResponse(task_id=new_task.id, status=new_task.status)
 

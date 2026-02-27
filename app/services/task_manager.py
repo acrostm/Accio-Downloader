@@ -4,6 +4,7 @@ import shutil
 import uuid
 from datetime import datetime
 from sqlalchemy.orm import Session
+from app.api.dependencies import SessionLocal
 from app.models.base import Task, TaskStatus
 from app.services.downloader import download_video_sync
 from app.core.config import settings
@@ -77,41 +78,46 @@ def organize_download(url: str, title: str, raw_file_path: str) -> str:
     return final_path
 
 
-def process_download_task(task_id: str, db: Session):
-    task = db.query(Task).filter(Task.id == task_id).first()
-    if not task:
-        return
-
+def process_download_task(task_id: str):
+    db: Session = SessionLocal()
     try:
-        # Step 1: Downloading
-        task.status = TaskStatus.DOWNLOADING
-        db.commit()
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if not task:
+            return
 
-        # Use a unique temp filename based on task_id to avoid collisions
-        temp_filename = f"{task_id}.%(ext)s"
-        temp_output_template = os.path.join(settings.TEMP_DOWNLOAD_DIR, temp_filename)
+        try:
+            # Step 1: Downloading
+            task.status = TaskStatus.DOWNLOADING
+            db.commit()
 
-        download_video_sync(task.url, task.format_id, temp_output_template, db)
+            # Use a unique temp filename based on task_id to avoid collisions
+            temp_filename = f"{task_id}.%(ext)s"
+            temp_output_template = os.path.join(settings.TEMP_DOWNLOAD_DIR, temp_filename)
 
-        # Find the actual downloaded file (yt-dlp adds the real extension)
-        actual_files = [
-            f for f in os.listdir(settings.TEMP_DOWNLOAD_DIR)
-            if f.startswith(task_id) and os.path.isfile(os.path.join(settings.TEMP_DOWNLOAD_DIR, f))
-        ]
-        if not actual_files:
-            raise Exception("Downloaded file not found after yt-dlp execution")
+            download_video_sync(task.url, task.format_id, temp_output_template, db)
 
-        raw_path = os.path.join(settings.TEMP_DOWNLOAD_DIR, actual_files[0])
+            # Find the actual downloaded file (yt-dlp adds the real extension)
+            actual_files = [
+                f for f in os.listdir(settings.TEMP_DOWNLOAD_DIR)
+                if f.startswith(task_id) and os.path.isfile(os.path.join(settings.TEMP_DOWNLOAD_DIR, f))
+            ]
+            if not actual_files:
+                raise Exception("Downloaded file not found after yt-dlp execution")
 
-        # Step 2: Move to organized folder
-        title = task.title or "video"
-        final_path = organize_download(task.url, title, raw_path)
+            raw_path = os.path.join(settings.TEMP_DOWNLOAD_DIR, actual_files[0])
 
-        task.local_path = final_path
-        task.status = TaskStatus.COMPLETED
-        db.commit()
+            # Step 2: Move to organized folder
+            title = task.title or "video"
+            final_path = organize_download(task.url, title, raw_path)
 
-    except Exception as e:
-        task.status = TaskStatus.FAILED
-        task.error_msg = str(e)
-        db.commit()
+            task.local_path = final_path
+            task.status = TaskStatus.COMPLETED
+            db.commit()
+
+        except Exception as e:
+            task.status = TaskStatus.FAILED
+            task.error_msg = str(e)
+            db.commit()
+    finally:
+        db.close()
+

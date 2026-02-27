@@ -35,6 +35,12 @@ interface Task {
   local_url?: string;
 }
 
+interface CookieStatus {
+  bilibili: boolean;
+  douyin: boolean;
+  youtube: boolean;
+}
+
 // Use relative path — Nginx inside the container proxies /api/* → FastAPI.
 // This works for local dev (via next.config rewrites) and production (via Nginx).
 const API_URL = "/api/v1";
@@ -48,6 +54,7 @@ export default function Home() {
   const [selectedFormat, setSelectedFormat] = useState("best");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isFetchingTasks, setIsFetchingTasks] = useState(false);
+  const [cookieStatus, setCookieStatus] = useState<CookieStatus | null>(null);
 
   const fetchTasks = useCallback(async () => {
     setIsFetchingTasks(true);
@@ -64,11 +71,21 @@ export default function Home() {
     }
   }, []);
 
+  const fetchCookieStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/video/cookies/status`);
+      if (response.ok) {
+        setCookieStatus(await response.json());
+      }
+    } catch { }
+  }, []);
+
   useEffect(() => {
+    fetchCookieStatus();
     fetchTasks();
     const interval = setInterval(fetchTasks, 3000);
     return () => clearInterval(interval);
-  }, [fetchTasks]);
+  }, [fetchTasks, fetchCookieStatus]);
 
   const parseVideo = async () => {
     if (!url) return;
@@ -145,12 +162,35 @@ export default function Home() {
       <div className="max-w-4xl mx-auto p-4 sm:p-8 flex flex-col gap-8 relative z-10">
         {/* Header */}
         <div className="flex flex-col gap-4">
-          <header className="glass-panel p-4 flex items-center shadow-lg shadow-black/20 gap-4">
-            <PlaySquare className="w-8 h-8 text-blue-400" />
-            <h1 className="text-2xl font-bold tracking-tight">Accio</h1>
-            <Badge variant="secondary" className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30">
-              Downloader
-            </Badge>
+          <header className="glass-panel p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between shadow-lg shadow-black/20 gap-4">
+            <div className="flex items-center gap-4">
+              <PlaySquare className="w-8 h-8 text-blue-400" />
+              <h1 className="text-2xl font-bold tracking-tight">Accio</h1>
+              <Badge variant="secondary" className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30">
+                Downloader
+              </Badge>
+            </div>
+
+            {cookieStatus && (
+              <div
+                className="flex items-center gap-3 bg-slate-950/50 px-3 py-1.5 rounded-full border border-white/10 text-xs font-medium cursor-help"
+                title="Green means the cookie is active in the container"
+              >
+                <span className="text-slate-500">Cookie Status:</span>
+                <span className={`flex items-center gap-1.5 ${cookieStatus.bilibili ? 'text-emerald-400' : 'text-slate-600'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${cookieStatus.bilibili ? 'bg-emerald-400' : 'bg-slate-700'}`}></span>
+                  Bili
+                </span>
+                <span className={`flex items-center gap-1.5 ${cookieStatus.douyin ? 'text-emerald-400' : 'text-slate-600'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${cookieStatus.douyin ? 'bg-emerald-400' : 'bg-slate-700'}`}></span>
+                  Douyin
+                </span>
+                <span className={`flex items-center gap-1.5 ${cookieStatus.youtube ? 'text-emerald-400' : 'text-slate-600'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${cookieStatus.youtube ? 'bg-emerald-400' : 'bg-slate-700'}`}></span>
+                  YT
+                </span>
+              </div>
+            )}
           </header>
 
           {/* Input Card */}

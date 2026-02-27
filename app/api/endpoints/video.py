@@ -66,3 +66,28 @@ def get_tasks(db: Session = Depends(get_db)):
         }
         for t in tasks
     ]
+
+@router.get("/cookies/status")
+def get_cookie_status():
+    status = {
+        "bilibili": False,
+        "douyin": False,
+        "youtube": False
+    }
+    
+    cookie_path = settings.COOKIES_FILE
+    if os.path.exists(cookie_path):
+        try:
+            with open(cookie_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                # Check for domain presence in Netscape format
+                if ".bilibili.com" in content:
+                    status["bilibili"] = True
+                if ".douyin.com" in content:
+                    status["douyin"] = True
+                if ".youtube.com" in content:
+                    status["youtube"] = True
+        except Exception:
+            pass
+            
+    return status

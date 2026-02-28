@@ -7,8 +7,36 @@ from app.core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
+from sqlalchemy import text
+from app.api.dependencies import engine
+
 # Create the database tables if they do not exist
 Base.metadata.create_all(bind=engine)
+
+# Auto-migration for SQLite to inject new columns
+with engine.begin() as conn:
+    if settings.DATABASE_URL.startswith("sqlite"):
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN thumbnail VARCHAR;"))
+        except Exception: pass
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN percent INTEGER;"))
+        except Exception: pass
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN downloaded_bytes INTEGER;"))
+        except Exception: pass
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN total_bytes INTEGER;"))
+        except Exception: pass
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN speed_str VARCHAR;"))
+        except Exception: pass
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN eta_str VARCHAR;"))
+        except Exception: pass
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN format_note VARCHAR;"))
+        except Exception: pass
 
 app = FastAPI(title="Accio-Downloader")
 

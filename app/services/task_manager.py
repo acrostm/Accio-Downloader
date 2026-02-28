@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from app.api.dependencies import SessionLocal
 from app.models.base import Task, TaskStatus
+import time
 from app.services.downloader import download_video_sync
 from app.core.config import settings
 
@@ -94,7 +95,58 @@ def process_download_task(task_id: str):
             temp_filename = f"{task_id}.%(ext)s"
             temp_output_template = os.path.join(settings.TEMP_DOWNLOAD_DIR, temp_filename)
 
-            download_video_sync(task.url, task.format_id, temp_output_template, db)
+            last_update_time = [0.0]
+
+            def progress_hook(d):
+                if d['status'] == 'downloading':
+                    now = time.time()
+                    # Throttle DB updates to once per second
+                    if now - last_update_time[0] >= 1.0:
+                        last_update_time[0] = now
+                        
+                        try:
+                            # Extract progress info
+                            downloaded = d.get('downloaded_bytes', 0)
+                            total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+                            
+                            task.downloaded_bytes = downloaded
+                            task.total_bytes = total if total > 0 else None
+                            
+                            if total > 0:
+                                task.percent = int((downloaded / total) * 100)
+                            
+                            speed = d.get('speed')
+                            if speed:
+                                task.speed_str = f"{speed / 1024 / 1024:.2f} MiB/s"
+                                
+                            eta = d.get('eta')
+                            if eta is not None:
+                                mins, secs = divmod(int(eta), 60)
+                                task.eta_str = f"{mins:02d}:{secs:02d}"
+                                
+                            db.commit()
+                        except Exception:
+                            db.rollback()
+                            
+                elif d['status'] == 'finished':
+                    try:
+                        task.percent = 100
+                        db.commit()
+                    except Exception:
+                        db.rollback()
+
+            def post_processor_hook(d):
+                pass
+                
+            ydl_opts_override = {
+                'progress_hooks': [progress_hook],
+                'postprocessor_hooks': [post_processor_hook]
+            }
+
+            download_video_sync(task.url, task.format_id, temp_output_template, db, extra_opts=ydl_opts_override)
+
+            # Re-fetch task to get the latest metadata injected by download_video_sync (if we extract info there)
+            db.refresh(task)
 
             # Find the actual downloaded file (yt-dlp adds the real extension)
             actual_files = [

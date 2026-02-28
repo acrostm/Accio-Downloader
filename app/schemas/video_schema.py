@@ -42,6 +42,14 @@ class TaskResponse(BaseModel):
     error_msg: Optional[str] = None
     created_at: str
     local_url: Optional[str] = None
+    
+    thumbnail: Optional[str] = None
+    percent: Optional[int] = None
+    downloaded_bytes: Optional[int] = None
+    total_bytes: Optional[int] = None
+    speed_str: Optional[str] = None
+    eta_str: Optional[str] = None
+    format_note: Optional[str] = None
 
     class Config:
         from_attributes = True

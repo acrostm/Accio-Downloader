@@ -63,7 +63,9 @@ def parse_video(url: str, db: Session) -> ParseResponse:
     except Exception as e:
         raise e
 
-def download_video_sync(url: str, format_id: str, output_path: str, db: Session):
+def download_video_sync(url: str, format_id: str, output_path: str, db: Session, extra_opts: dict = None):
+    from app.models.base import Task
+    
     ydl_opts = {
         'geo_bypass': True,
         'sleep_requests': 1.5,
@@ -75,12 +77,34 @@ def download_video_sync(url: str, format_id: str, output_path: str, db: Session)
         'quiet': False
     }
     
+    if extra_opts:
+        ydl_opts.update(extra_opts)
+    
     cookie_file = get_cookies_file_for_url()
     if cookie_file:
         ydl_opts['cookiefile'] = cookie_file
         
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # Extract basic info quickly to populate title and thumbnail in database early
+            info = ydl.extract_info(url, download=False)
+            task_id = os.path.basename(output_path).split('.')[0]
+            
+            task = db.query(Task).filter(Task.id == task_id).first()
+            if task:
+                task.title = info.get('title', task.title)
+                task.thumbnail = info.get('thumbnail', task.thumbnail)
+                
+                # Find matching format note if format_id was specified
+                if task.format_id and task.format_id != 'best':
+                    for f in info.get('formats', []):
+                        if f.get('format_id') == task.format_id:
+                            task.format_note = str(f.get('resolution') or f.get('format_note', '')) + " " + str(f.get('ext', ''))
+                            break
+                            
+                db.commit()
+                
+            # Now actually perform the download
             ydl.download([url])
     except Exception as e:
         raise e

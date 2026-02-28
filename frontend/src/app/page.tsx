@@ -33,6 +33,14 @@ interface Task {
   error_msg?: string;
   created_at: string;
   local_url?: string;
+
+  thumbnail?: string;
+  percent?: number;
+  downloaded_bytes?: number;
+  total_bytes?: number;
+  speed_str?: string;
+  eta_str?: string;
+  format_note?: string;
 }
 
 interface CookieStatus {
@@ -308,23 +316,47 @@ export default function Home() {
                 ) : (
                   <Accordion type="single" collapsible className="w-full flex flex-col gap-3">
                     {tasks.map(task => (
-                      <AccordionItem key={task.id} value={task.id} className="bg-slate-950/40 border border-white/10 rounded-xl px-4 hover:bg-slate-950/60 transition-colors data-[state=open]:bg-slate-900/60">
-                        <div className="flex flex-col sm:flex-row justify-between sm:items-center py-4 gap-4">
-                          <div className="flex flex-col gap-1.5 overflow-hidden flex-1">
-                            <span className="font-semibold truncate pr-4" title={task.title || task.url}>
-                              {task.title || "Processing..."}
-                            </span>
-                            <div className="flex items-center gap-2 text-xs text-slate-400">
-                              <span>ID: {task.id.split('-')[0]}</span>
-                              <span className="opacity-50">•</span>
-                              <span>{new Date(task.created_at).toLocaleString()}</span>
+                      <AccordionItem key={task.id} value={task.id} className="bg-slate-950/40 border border-white/10 rounded-xl px-4 hover:bg-slate-950/60 transition-colors data-[state=open]:bg-slate-900/60 overflow-hidden">
+
+                        {/* Interactive Header Row */}
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center py-4 gap-4 relative z-10">
+                          <div className="flex items-center gap-4 overflow-hidden flex-1">
+
+                            {/* Thumbnail Preview */}
+                            <div className="w-20 h-12 bg-black/50 rounded flex-shrink-0 overflow-hidden border border-white/10 flex items-center justify-center">
+                              {task.thumbnail ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={task.thumbnail} alt="thumb" className="w-full h-full object-cover" />
+                              ) : (
+                                <PlaySquare className="w-4 h-4 text-slate-500" />
+                              )}
                             </div>
-                            {task.error_msg && (
-                              <div className="text-xs text-red-400 truncate mt-1">
-                                ⚠ {task.error_msg}
+
+                            {/* Title & Meta */}
+                            <div className="flex flex-col gap-1 overflow-hidden flex-1">
+                              <span className="font-semibold truncate pr-4 text-sm sm:text-base text-slate-200" title={task.title || task.url}>
+                                {task.title || "Processing video information..."}
+                              </span>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                                <span>ID: {task.id.split('-')[0]}</span>
+                                <span className="opacity-50">•</span>
+                                <span>{new Date(task.created_at).toLocaleString()}</span>
+                                {task.format_note && (
+                                  <>
+                                    <span className="opacity-50">•</span>
+                                    <span className="text-blue-400 font-medium bg-blue-400/10 px-1.5 rounded">{task.format_note}</span>
+                                  </>
+                                )}
                               </div>
-                            )}
+                              {task.error_msg && (
+                                <div className="text-xs text-red-400 truncate mt-1">
+                                  ⚠ {task.error_msg}
+                                </div>
+                              )}
+                            </div>
                           </div>
+
+                          {/* Status Badge & Actions */}
                           <div className="flex items-center gap-3 shrink-0">
                             <Badge className={getStatusColor(task.status)}>{task.status}</Badge>
                             {task.status === "COMPLETED" && task.local_url && (
@@ -341,6 +373,28 @@ export default function Home() {
                             <AccordionTrigger className="p-2 hover:bg-white/10 rounded-full [&>svg]:text-white data-[state=open]:rotate-180" />
                           </div>
                         </div>
+
+                        {/* Inline Progress Bar Container (Only show when downloading) */}
+                        {task.status === "DOWNLOADING" && task.percent !== undefined && (
+                          <div className="w-full pb-3 flex flex-col gap-1.5 relative z-10 px-1">
+                            <div className="flex justify-between items-center text-xs font-mono text-slate-400 px-1">
+                              <div className="flex gap-3 text-blue-300/80">
+                                <span>{formatBytes(task.downloaded_bytes)} / {task.total_bytes ? formatBytes(task.total_bytes) : '???'}</span>
+                                {task.speed_str && <span>⚡ {task.speed_str}</span>}
+                              </div>
+                              <div className="flex gap-3">
+                                {task.eta_str && <span className="text-amber-400/80">ETA: {task.eta_str}</span>}
+                                <span className="font-bold text-slate-300">{task.percent}%</span>
+                              </div>
+                            </div>
+                            <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                              <div
+                                className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-1000 ease-out"
+                                style={{ width: `${task.percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
 
                         <AccordionContent>
                           <div className="pt-2 pb-4 border-t border-white/10 flex flex-col gap-2 mt-2 text-sm text-slate-300">
